@@ -38,8 +38,8 @@ app.get('*', function(req, res) {
       (async () => {
 
         // redirect to original while video is processing - the next request to this video will show watermarked video
-        console.log('Redirect to original video while video is processing');
-        res.redirect(ORIGINAL_VIDEO)
+        //console.log('Redirect to original video while video is processing');
+        //res.redirect(ORIGINAL_VIDEO)
 
         const tempFilename = path.basename(ORIGINAL_VIDEO)
 
