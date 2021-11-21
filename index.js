@@ -31,7 +31,7 @@ app.get('*', function(req, res) {
     //console.log(PATH)
 
     const tempFilename = path.basename(ORIGINAL_VIDEO)
-
+    console.log("tempfile",tempFilename)
     // check if already procesing
     if (fs.existsSync(__dirname + tempFilename)) {
       console.log('Already processing, please wait: ', tempFilename);
@@ -44,11 +44,14 @@ app.get('*', function(req, res) {
 
         // Check if file exists on server
         if (fs.existsSync(PATH)) {
+            console.log('File exists and adready processed',tempFilename)
             res.sendFile(PATH) // file already exists, send file
         } else { // file does not exist, generate watermarked video
 
           // The path of the downloaded file on our machine
           const localFilePath = path.resolve(__dirname, tempFilename)
+          console.log('localFilePath ', localFilePath)
+          console.log('Downloading file: ', tempFilename)
           try {
             const response = await axios({
               method: 'GET',
@@ -62,6 +65,7 @@ app.get('*', function(req, res) {
 
               try {
 
+                console.log('Processing file: ', tempFilename)
                 var process = new ffmpeg(tempFilename)
                 process.then(function (video) {
                   // Callback mode
