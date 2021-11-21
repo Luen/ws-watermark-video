@@ -37,11 +37,16 @@ app.get('*', function(req, res) {
 
       (async () => {
 
-        // redirect to original while video is processing - the next request to this video will show watermarked video
-        //console.log('Redirect to original video while video is processing');
-        //res.redirect(ORIGINAL_VIDEO)
+
 
         const tempFilename = path.basename(ORIGINAL_VIDEO)
+
+        if (fs.existsSync(__dirname + tempFilename)) {
+          console.log('Already processing, please wait');
+          // redirect to original while video is processing - the next request to this video will show watermarked video
+          //console.log('Redirect to original video while video is processing');
+          res.redirect(ORIGINAL_VIDEO)
+        }
 
         // The path of the downloaded file on our machine
         const localFilePath = path.resolve(__dirname, tempFilename)
