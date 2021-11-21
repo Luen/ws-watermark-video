@@ -37,64 +37,65 @@ app.get('*', function(req, res) {
 
       (async () => {
 
-
-
         const tempFilename = path.basename(ORIGINAL_VIDEO)
 
+        //if already procesing, please wait
         if (fs.existsSync(__dirname + tempFilename)) {
           console.log('Already processing, please wait');
           // redirect to original while video is processing - the next request to this video will show watermarked video
           //console.log('Redirect to original video while video is processing');
           res.redirect(ORIGINAL_VIDEO)
-        }
+        } else {// start processing the file
 
-        // The path of the downloaded file on our machine
-        const localFilePath = path.resolve(__dirname, tempFilename)
-        try {
-          const response = await axios({
-            method: 'GET',
-            url: ORIGINAL_VIDEO,
-            responseType: 'stream',
-          })
+          // The path of the downloaded file on our machine
+          const localFilePath = path.resolve(__dirname, tempFilename)
+          try {
+            const response = await axios({
+              method: 'GET',
+              url: ORIGINAL_VIDEO,
+              responseType: 'stream',
+            })
 
-          const w = response.data.pipe(fs.createWriteStream(localFilePath))
-          w.on('finish', () => {
-            console.log('Successfully downloaded file: ', tempFilename)
+            const w = response.data.pipe(fs.createWriteStream(localFilePath))
+            w.on('finish', () => {
+              console.log('Successfully downloaded file: ', tempFilename)
 
-            try {
+              try {
 
-              var process = new ffmpeg(tempFilename)
-              process.then(function (video) {
-                // Callback mode
+                var process = new ffmpeg(tempFilename)
+                process.then(function (video) {
+                  // Callback mode
 
-                  // create watermarked video
-                video.fnAddWatermark(LOGO, PATH, {
-                  position : 'C'
-                }, function (error, file) {
+                    // create watermarked video
+                  video.fnAddWatermark(LOGO, PATH, {
+                    position : 'C'
+                  }, function (error, file) {
 
-                  console.log('Successfully delete temp file: ' + tempFilename)
-                  fs.unlinkSync(tempFilename) // delete temp file
+                    console.log('Successfully delete temp file: ' + tempFilename)
+                    fs.unlinkSync(tempFilename) // delete temp file
 
-                  if (!error) {
-                    console.log('Successfully processed file: ' + file)
-                    //console.log(__dirname + "/watermarked_video.mp4")
-                    res.sendFile(PATH)
-                  } else {
-                    console.log('Error: ', error)
-                  }
+                    if (!error) {
+                      console.log('Successfully processed file: ' + file)
+                      //console.log(__dirname + "/watermarked_video.mp4")
+                      res.sendFile(PATH)
+                    } else {
+                      console.log('Error: ', error)
+                    }
+                  });
+                }, function (err) {
+                  console.log('Error: ' + err)
                 });
-              }, function (err) {
-                console.log('Error: ' + err)
-              });
 
-            } catch (e) {
-            	console.log(e.code)
-            	console.log(e.msg)
-            }
+              } catch (e) {
+              	console.log(e.code)
+              	console.log(e.msg)
+              }
 
-          });
-        } catch (err) {
-          throw new Error(err)
+            });
+          } catch (err) {
+            throw new Error(err)
+          }
+
         }
 
       })();
