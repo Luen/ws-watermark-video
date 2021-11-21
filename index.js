@@ -54,7 +54,7 @@ app.get('*', function(req, res) {
 
           const w = response.data.pipe(fs.createWriteStream(localFilePath))
           w.on('finish', () => {
-            console.log('Successfully downloaded file - ', tempFilename)
+            console.log('Successfully downloaded file: ', tempFilename)
 
             try {
 
@@ -67,12 +67,15 @@ app.get('*', function(req, res) {
                   position : 'C'
                 }, function (error, file) {
 
+                  console.log('Successfully delete temp file: ' + tempFilename)
                   fs.unlinkSync(tempFilename) // delete temp file
 
                   if (!error) {
-                    console.log('New video file: ' + file)
+                    console.log('Successfully processed file: ' + file)
                     //console.log(__dirname + "/watermarked_video.mp4")
                     res.sendFile(PATH)
+                  } else {
+                    console.log('Error: ', error)
                   }
                 });
               }, function (err) {
