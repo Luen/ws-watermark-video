@@ -28,24 +28,24 @@ app.get('*', function(req, res) {
     // Store on server in videos folder (not content/images/videos)
     const PATH = __dirname + FILENAME.replace('/content/images','')
     //const PATH = __dirname + '/watermarked_video.mp4'
-    console.log(PATH)
+    //console.log(PATH)
 
-    // Check if file exists on server
-    if (fs.existsSync(PATH)) {
-        res.sendFile(PATH) // file already exists, send file
-    } else { // file does not exist, generate watermarked video
+    const tempFilename = path.basename(ORIGINAL_VIDEO)
+
+    // check if already procesing
+    if (fs.existsSync(__dirname + tempFilename)) {
+      console.log('Already processing, please wait: ', tempFilename);
+      // redirect to original while video is processing - the next request to this video will show watermarked video
+      console.log('Redirect to original video while video is processing');
+      res.redirect(ORIGINAL_VIDEO)
+    } else {// start processing the file
 
       (async () => {
 
-        const tempFilename = path.basename(ORIGINAL_VIDEO)
-
-        //if already procesing, please wait
-        if (fs.existsSync(__dirname + tempFilename)) {
-          console.log('Already processing, please wait');
-          // redirect to original while video is processing - the next request to this video will show watermarked video
-          //console.log('Redirect to original video while video is processing');
-          res.redirect(ORIGINAL_VIDEO)
-        } else {// start processing the file
+        // Check if file exists on server
+        if (fs.existsSync(PATH)) {
+            res.sendFile(PATH) // file already exists, send file
+        } else { // file does not exist, generate watermarked video
 
           // The path of the downloaded file on our machine
           const localFilePath = path.resolve(__dirname, tempFilename)
@@ -76,7 +76,6 @@ app.get('*', function(req, res) {
 
                     if (!error) {
                       console.log('Successfully processed file: ' + file)
-                      //console.log(__dirname + "/watermarked_video.mp4")
                       res.sendFile(PATH)
                     } else {
                       console.log('Error: ', error)
