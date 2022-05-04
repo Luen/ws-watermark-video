@@ -7,6 +7,13 @@ const ffmpeg = require("ffmpeg")
 const app = express()
 const port = process.env.PORT || 8090
 
+app.get('/', async (req, res, next) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/plain'
+  })
+  res.end('Wanderstories Video Watermarker')
+})
+
 app.get('*', function(req, res) {
 
   const FILENAME = escape(req.url)
