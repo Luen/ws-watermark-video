@@ -34,11 +34,12 @@ app.get('*', async (req, res) => {
 	if (
 		ACCEPTED_FORMATS.indexOf(FILE_EXTENSION) >= 0 &&
 		FILENAME.split('/')[1] == 'content' &&
-		FILENAME.split('/')[2] == 'images' &&
-		FILENAME.split('/')[3] == 'videos'
+		((FILENAME.split('/')[2] == 'images' && FILENAME.split('/')[3] == 'videos') || FILENAME.split('/')[2] == 'media')
 	) {
-		const PATH = path.resolve(__dirname + FILENAME.replace('/content/images', ''));
 		const tempFilename = path.basename(ORIGINAL_VIDEO);
+    let PATH = path.resolve(__dirname + FILENAME.replace('/content/images', ''));
+    if (FILENAME.includes('/content/media')) PATH = path.resolve("videos/"+tempFilename);
+    console.log(PATH)
 
 		if (fs.existsSync(path.resolve(__dirname + tempFilename))) {
 			console.log('Already processing, please wait: ', tempFilename);
