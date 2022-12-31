@@ -100,15 +100,22 @@ app.get('*', function(req, res) {
                       res.sendFile(PATH)
                     } else {
                       console.log('Error: ', error)
+                      fs.unlink(PATH) // delete file
+                      fs.unlink(tempFilename) // delete file
+                      
                     }
                   });
                 }, function (err) {
                   console.log('Error: ' + err)
+                  fs.unlink(PATH) // delete file
+                  fs.unlink(tempFilename) // delete file
                 });
 
               } catch (e) {
               	console.log(e.code)
               	console.log(e.msg)
+                fs.unlink(PATH) // delete file
+                fs.unlink(tempFilename) // delete file
               }
 
             });
