@@ -40,64 +40,70 @@ app.get('*', async (req, res) => {
 		const PATH = path.resolve(__dirname + FILENAME.replace('/content/images', ''));
 		const tempFilename = path.basename(ORIGINAL_VIDEO);
 
-		if (fs.existsSync(__dirname + tempFilename)) {
+		if (fs.existsSync(path.resolve(__dirname + tempFilename))) {
 			console.log('Already processing, please wait: ', tempFilename);
 			console.log('Redirect to original video while video is processing');
 			res.redirect(ORIGINAL_VIDEO);
 		} else {
-			const localFilePath = path.resolve(__dirname, tempFilename);
-			console.log('localFilePath ', localFilePath);
-			console.log('Downloading file: ', tempFilename);
+      // Check if file exists on server
+      if (fs.existsSync(PATH)) {
+        console.log('File exists and adready processed',tempFilename)
+        res.sendFile(PATH) // file already exists, send file
+      } else { // file does not exist, generate watermarked video
+        const localFilePath = path.resolve(__dirname, tempFilename);
+        console.log('localFilePath ', localFilePath);
+        console.log('Downloading file: ', tempFilename);
 
-			try {
-				const response = await axios({
-					method: 'GET',
-					url: ORIGINAL_VIDEO,
-					responseType: 'stream',
-				});
+        try {
+          const response = await axios({
+            method: 'GET',
+            url: ORIGINAL_VIDEO,
+            responseType: 'stream',
+          });
 
-				const w = response.data.pipe(fs.createWriteStream(localFilePath));
-				w.on('finish', () => {
-					console.log('Successfully downloaded file: ', tempFilename);
+          const w = response.data.pipe(fs.createWriteStream(localFilePath));
+          w.on('finish', () => {
+            console.log('Successfully downloaded file: ', tempFilename);
 
-					try {
-						console.log('Processing file: ', tempFilename);
-						const process = new ffmpeg(tempFilename);
-						process.then(
-							function (video) {
-								video.fnAddWatermark(LOGO, PATH, {
-									position: 'C',
-								}, function (error, file) {
-									console.log('Successfully delete temp file: ' + tempFilename);
-									fs.unlinkSync(tempFilename);
+            try {
+              console.log('Processing file: ', tempFilename);
+              const process = new ffmpeg(tempFilename);
+              process.then(
+                function (video) {
+                  video.fnAddWatermark(LOGO, PATH, {
+                    position: 'C',
+                  }, function (error, file) {
+                    console.log('Successfully delete temp file: ' + tempFilename);
+                    fs.unlinkSync(tempFilename);
 
-									if (!error) {
-										console.log('Successfully processed file: ' + file);
-										res.sendFile(PATH);
-									} else {
-										console.log('Error: ', error);
-										fs.unlink(PATH);
-										fs.unlink(tempFilename);
-									}
-								});
-							},
-							function (err) {
-								console.log('Error: ' + err);
-								fs.unlink(PATH);
-								fs.unlink(tempFilename);
-							}
-						);
-					} catch (e) {
-						console.log(e.code);
-						console.log(e.msg);
-						fs.unlink(PATH);
-						fs.unlink(tempFilename);
-					}
-				});
-			} catch (err) {
-				throw new Error(err);
-			}
-		}
+                    if (!error) {
+                      console.log('Successfully processed file: ' + file);
+                      res.sendFile(PATH);
+                    } else {
+                      console.log('Error: ', error);
+                      //fs.unlink(PATH);
+                      //fs.unlink(tempFilename);
+                    }
+                  });
+                },
+                function (err) {
+                  console.log('Error: ' + err);
+                  //fs.unlink(PATH);
+                  //fs.unlink(tempFilename);
+                }
+              );
+            } catch (e) {
+              console.log(e.code);
+              console.log(e.msg);
+              //fs.unlink(PATH);
+              //fs.unlink(tempFilename);
+            }
+          });
+        } catch (err) {
+          throw new Error(err);
+        }
+      }
+    }
 	} else {
 		res.status(404).send('Not Found !!!');
 	}
