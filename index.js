@@ -47,15 +47,8 @@ app.get('*', async (req, res) => {
 		} else {
       // Check if file exists on server
       if (fs.existsSync(PATH)) {
-        var stats = fs.statSync(PATH)
-        var fileSizeInBytes = stats.size;
-        if (fileSizeInBytes < 250) { // less than 250 bytes so might be courrupted
-          console.log('File exists but is corrupted. problem not enough resources on server to process this file or multiple files at once');
-          res.redirect(ORIGINAL_VIDEO); // redirect to unprocessed file
-        } else {
-          console.log('File exists and already processed',tempFilename)
-          res.sendFile(PATH) // file already exists, send file
-        }
+        console.log('File exists and already processed',tempFilename)
+        res.sendFile(PATH) // file already exists, send file
       } else { // file does not exist, generate watermarked video
         const localFilePath = path.resolve(__dirname, tempFilename);
         console.log('localFilePath ', localFilePath);
