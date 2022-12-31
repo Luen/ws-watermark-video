@@ -1,4 +1,4 @@
-#/videos/*
+/videos/*
 ffmpeg.exe
 
 # Logs
