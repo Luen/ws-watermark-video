@@ -76,7 +76,7 @@ app.get('*', async (req, res) => {
                   }, function (error, file) {
                     console.log('Successfully delete temp file: ' + tempFilename);
                     fs.unlinkSync(tempFilename);
-
+                    console.log('e',error);
                     if (!error) {
                       console.log('Successfully processed file: ' + file);
                       res.sendFile(PATH);
