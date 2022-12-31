@@ -1,4 +1,5 @@
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const fs = require('fs')
 const path = require('path')
 const axios = require("axios")
@@ -6,6 +7,15 @@ const ffmpeg = require("ffmpeg")
 
 const app = express()
 const port = process.env.PORT || 8090
+
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+})
+// Apply the rate limiting middleware to all requests
+app.use(limiter)
 
 app.get('/', async (req, res, next) => {
   res.writeHead(200, {
@@ -22,7 +32,7 @@ app.get('*', function(req, res) {
 
   const FILE_EXTENSION = ORIGINAL_VIDEO.split('.').pop().toLowerCase()
 
-  const LOGO = __dirname + "/Wanderstories-logo.png"
+  const LOGO = path.resolve(__dirname + "/Wanderstories-logo.png")
   //const LOGO = "./Wanderstories-logo.png"
 
   const ACCEPTED_FORMATS = [
@@ -33,7 +43,7 @@ app.get('*', function(req, res) {
   if (ACCEPTED_FORMATS.indexOf(FILE_EXTENSION) >= 0 && FILENAME.split('/')[1] == 'content' && FILENAME.split('/')[2] == 'images' && FILENAME.split('/')[3] == 'videos') {
 
     // Store on server in videos folder (not content/images/videos)
-    const PATH = __dirname + FILENAME.replace('/content/images','')
+    const PATH = path.resolve(__dirname + FILENAME.replace('/content/images',''))
     //const PATH = __dirname + '/watermarked_video.mp4'
     //console.log(PATH)
 
@@ -42,7 +52,7 @@ app.get('*', function(req, res) {
     // check if already procesing
     if (fs.existsSync(__dirname + tempFilename)) {
       console.log('Already processing, please wait: ', tempFilename);
-      // redirect to original while video is processing - the next request to this video will show watermarked video
+      // redirect to original while video is processing - the next request to this video will show watermarked video (if completed)
       console.log('Redirect to original video while video is processing');
       res.redirect(ORIGINAL_VIDEO)
     } else {// start processing the file
