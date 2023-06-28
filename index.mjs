@@ -4,9 +4,31 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import ffmpeg from 'ffmpeg';
+import helmet from 'helmet';
+import compression from 'compression';
+import cors from 'cors';
+import csrf from 'csurf';
+import cookieParser from 'cookie-parser';
 
-const app = express();
 const port = process.env.PORT || 8090;
+const app = express();
+
+// Use necessary middleware
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(cookieParser());
+app.use(csrf({ cookie: true })); // Implement CSRF protection
+app.use(helmet()); // Apply additional security headers
+app.use(compression()); // Compress all routes
+app.use(cors()); // Enable CORS for all routes
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 100,
+	standardHeaders: true,
+	legacyHeaders: false,
+});
+app.use(limiter);
+
 const logoPath = path.resolve(process.cwd(), 'Wanderstories-logo.png');
 const acceptedFormats = ['mp4'];
 const tempFileDir = path.resolve(process.cwd(), 'temp');
@@ -19,13 +41,6 @@ if (!fs.existsSync(tempFileDir)){
 	fs.mkdirSync(tempFileDir, { recursive: true });
 }	
 
-const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000,
-	max: 100,
-	standardHeaders: true,
-	legacyHeaders: false,
-});
-app.use(limiter);
 
 app.get('/', (req, res) => {
 	res.status(200).contentType('text/plain').send('Wanderstories Video Watermarker');
@@ -43,14 +58,19 @@ app.listen(port, () => {
 });
 
 async function processVideoRequest(req, res, next) {
-	const url = req.url;
-	const originalVideoUrl = `https://wanderstories.space${url}`;
-	const fileExtension = path.extname(originalVideoUrl).slice(1).toLowerCase();
-	const isAcceptedFormat = acceptedFormats.includes(fileExtension);
+	const url = path.normalize(req.path);
+    if (url.includes('../') || url.includes('..\\')) {
+        // Block the request if it tries to go to the parent directory
+        return res.status(400).send('Invalid request');
+    }
 
-	if (!isAcceptedFormat || !isValidPath(url)) {
-		return res.status(404).send('Not Found');
-	}
+    const originalVideoUrl = `https://wanderstories.space${url}`;
+    const fileExtension = path.extname(originalVideoUrl).slice(1).toLowerCase();
+    const isAcceptedFormat = acceptedFormats.includes(fileExtension);
+
+    if (!isAcceptedFormat || !isValidPath(url)) {
+        return res.status(404).send('Not Found');
+    }
 
 	const filename = path.basename(originalVideoUrl);
 	const tempFilePath = path.join(tempFileDir, filename);
@@ -105,7 +125,6 @@ async function processVideo(inputPath, outputPath) {
 			});
 		});
 	}).finally(() => {
-		console.log('Delete temp file:', inputPath);
 		// Delete the inputPath file using unlink
 		fs.unlink(inputPath, (err) => {
 			if (err) {
@@ -113,7 +132,7 @@ async function processVideo(inputPath, outputPath) {
 				return;
 			}
 			// File deleted successfully
-			console.log('Temp file deleted');
+			// console.log('Temp file successfully deleted');
 		});
 	});
 }
