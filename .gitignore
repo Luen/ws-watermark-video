@@ -1,4 +1,5 @@
 /videos/*
+/temp/*
 *.mp4
 ffmpeg.exe
 
