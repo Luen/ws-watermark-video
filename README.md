@@ -2,10 +2,10 @@
 Watermark Wanderstories video using a proxy (express & ffmpeg).
 
 # Install dependencies
-Isntall nodejs
-Install ffmpeg - https://www.ffmpeg.org/download.html
+Install nodejs and ffmpeg - https://www.ffmpeg.org/download.html
 
 For Windows: 
+
 Download ffmpeg.exe to the git folder
 
 For Ubuntu:
@@ -16,7 +16,10 @@ sudo apt install ffmpeg
 ```
 
 For macOS:
+
+``` 
 brew install ffmpeg
+```
 
 # Install Script
 ```
