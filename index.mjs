@@ -11,6 +11,12 @@ import csrf from 'csurf';
 import cookieParser from 'cookie-parser';
 
 const port = process.env.PORT || 8090;
+
+const logoPath = path.resolve(process.cwd(), 'Wanderstories-logo.png');
+const acceptedFormats = ['mp4'];
+const tempFileDir = path.resolve(process.cwd(), 'temp');
+const outputDir = path.resolve(process.cwd(), 'videos');
+
 const app = express();
 
 // Use necessary middleware
@@ -29,12 +35,6 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-const logoPath = path.resolve(process.cwd(), 'Wanderstories-logo.png');
-const acceptedFormats = ['mp4'];
-const tempFileDir = path.resolve(process.cwd(), 'temp');
-const outputDir = path.resolve(process.cwd(), 'videos');
-const contentDir = path.resolve(process.cwd(), 'content');
-
 // Check if the directories exist, if not create them
 if (!fs.existsSync(outputDir)){
     fs.mkdirSync(outputDir, { recursive: true });
@@ -48,7 +48,8 @@ app.get('/', (req, res) => {
     res.status(200).contentType('text/plain').send('Wanderstories Video Watermarker');
 });
 
-app.get('*', processVideoRequest);
+app.get('/content/images/videos/*', processVideoRequest);
+app.get('/content/media/*', processVideoRequest);
 
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -60,10 +61,16 @@ app.listen(port, () => {
 });
 
 async function processVideoRequest(req, res, next) {
-    // Resolve the path to its absolute form to prevent path traversal
-    let requestedPath = path.resolve('/', req.path.slice(1));
-	// Remove the trailing slash if it exists
-	if (requestedPath.includes('../') || requestedPath.includes('..\\')) {
+    let requestedPath = req.path;
+
+	// check that the requestedPath starts with /content/images/videos/ or /content/media/
+	if (!requestedPath.startsWith('/content/images/videos/') && !requestedPath.startsWith('/content/media/')) {
+		// Block the request if it's not a valid path
+		return res.status(400).send('Invalid request');
+	}
+
+	// Very strict validation to only allow certain characters in the path
+	if (requestedPath.includes('../') || requestedPath.includes('..\\') || !/^[\w\-\/\.]+$/.test(requestedPath)) {
         // Block the request if it contains path traversal
         return res.status(400).send('Invalid request');
     }
@@ -72,7 +79,8 @@ async function processVideoRequest(req, res, next) {
     const isAcceptedFormat = acceptedFormats.includes(fileExtension);
 
     if (!isAcceptedFormat) {
-        return res.status(404).send('Not Found');
+		// Block the request if it's not an accepted format
+        return res.status(400).send('Invalid request');
     }
 
     const filename = path.basename(requestedPath);
