@@ -48,6 +48,10 @@ app.get('/', (req, res) => {
     res.status(200).contentType('text/plain').send('Wanderstories Video Watermarker');
 });
 
+app.get('/favicon.ico', async (req, res, next) => {
+    res.sendFile(path.join(__dirname, 'favicon.ico'));
+})
+
 app.get('/content/images/videos/*', processVideoRequest);
 app.get('/content/media/*', processVideoRequest);
 
