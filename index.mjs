@@ -2,6 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
+import url from 'url';
 import axios from 'axios';
 import ffmpeg from 'ffmpeg';
 import helmet from 'helmet';
@@ -9,6 +10,8 @@ import compression from 'compression';
 import cors from 'cors';
 import csrf from 'csurf';
 import cookieParser from 'cookie-parser';
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 const port = process.env.PORT || 8090;
 
@@ -49,7 +52,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/favicon.ico', async (req, res, next) => {
-    res.sendFile(path.join(__dirname, 'favicon.ico'));
+    res.sendFile('favicon.ico', { root: __dirname });
 })
 
 app.get('/content/images/videos/*', processVideoRequest);
@@ -61,7 +64,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(port, () => {
-    console.log(`Listening on port ${port}`);
+    console.log(`Listening on port http://localhost:${port}`);
 });
 
 async function processVideoRequest(req, res, next) {
@@ -97,7 +100,12 @@ async function processVideoRequest(req, res, next) {
         // Check for file existence and avoid reprocessing
         if (fs.existsSync(outputPath)) {
             console.log('File already exists, returning cached version', filename);
-            return res.sendFile(outputPath);
+            console.log('outputPath:', outputPath);
+            if (fs.existsSync(outputPath)) {
+                return res.sendFile(outputPath);
+            } else {
+                console.log('File does not exist:', outputPath);
+            }
         }
         
         console.log('Processing video:', filename)
