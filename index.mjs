@@ -21,22 +21,32 @@ const tempFileDir = path.resolve(process.cwd(), 'temp');
 const outputDir = path.resolve(process.cwd(), 'videos');
 
 const app = express();
+app.set('trust proxy', 1); // trust first proxy
 
 // Use necessary middleware
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(csrf({ cookie: true }));
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'unsafe-none' },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
 app.use(compression());
-app.use(cors());
-const limiter = rateLimit({
+app.use(cors({
+    origin: function (origin, callback) {
+      callback(null, true)
+    },
+    optionsSuccessStatus: 204,
+    credentials: true  // Enable credentials (cookies, etc.)
+}));
+app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-});
-app.use(limiter);
+}));
 
 // Check if the directories exist, if not create them
 if (!fs.existsSync(outputDir)){
