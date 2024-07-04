@@ -6,7 +6,7 @@ Install nodejs and ffmpeg - https://www.ffmpeg.org/download.html
 
 For Windows: 
 
-Download ffmpeg.exe to the git folder
+Download `ffmpeg.exe` to the git folder
 
 For Ubuntu:
 
