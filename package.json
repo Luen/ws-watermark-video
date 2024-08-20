@@ -17,7 +17,8 @@
     "express": "^4.19.2",
     "express-rate-limit": "^6.11.2",
     "ffmpeg": "^0.0.4",
-    "helmet": "^7.0.0"
+    "helmet": "^7.0.0",
+    "sanitize-filename": "^1.6.3"
   },
   "devDependencies": {
     "eslint": "^8.44.0",

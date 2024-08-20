@@ -9,6 +9,7 @@ import compression from 'compression'
 import cors from 'cors'
 import csrf from 'csurf'
 import cookieParser from 'cookie-parser'
+import sanitizeFilename from 'sanitize-filename'
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 
@@ -53,7 +54,7 @@ app.use(
     })
 )
 
-// Check if the directories exist, if not create them
+// Ensure directories exist
 if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true })
 }
@@ -67,7 +68,7 @@ app.get('/', (req, res) => {
         .send('Wanderstories Video Watermarker')
 })
 
-app.get('/favicon.ico', async (req, res, next) => {
+app.get('/favicon.ico', (req, res) => {
     res.sendFile('favicon.ico', { root: __dirname })
 })
 
@@ -84,56 +85,33 @@ app.listen(port, () => {
 })
 
 async function processVideoRequest(req, res, next) {
-    let requestedPath = req.path
+    const requestedPath = req.path
 
-    // check that the requestedPath starts with /content/images/videos/ or /content/media/
-    if (
-        !requestedPath.startsWith('/content/images/videos/') &&
-        !requestedPath.startsWith('/content/media/')
-    ) {
-        // Block the request if it's not a valid path
-        return res.status(400).send('Invalid request')
-    }
-
-    // Very strict validation to only allow certain characters in the path
-    if (
-        requestedPath.includes('../') ||
-        requestedPath.includes('..\\') ||
-        !/^[\w\-\/\.]+$/.test(requestedPath)
-    ) {
-        // Block the request if it contains path traversal
+    if (!isValidPath(requestedPath)) {
         return res.status(400).send('Invalid request')
     }
 
     const fileExtension = path.extname(requestedPath).slice(1).toLowerCase()
     const isAcceptedFormat = acceptedFormats.includes(fileExtension)
-
     if (!isAcceptedFormat) {
         // Block the request if it's not an accepted format
         return res.status(400).send('Invalid request')
     }
 
-    const filename = path.basename(requestedPath)
+    const filename = sanitizeFilename(path.basename(requestedPath))
     const tempFilePath = path.join(tempFileDir, filename)
     const outputPath = path.join(outputDir, filename)
 
     try {
-        const originalVideoUrl = `https://wanderstories.space${requestedPath}`
-
-        // Check for file existence and avoid reprocessing
         if (fs.existsSync(outputPath)) {
             console.log(
-                'File already exists, returning cached version',
+                'File already exists, returning cached version:',
                 filename
             )
-            console.log('outputPath:', outputPath)
-            if (fs.existsSync(outputPath)) {
-                return res.sendFile(outputPath)
-            } else {
-                console.log('File does not exist:', outputPath)
-            }
+            return res.sendFile(outputPath)
         }
 
+        const originalVideoUrl = `https://wanderstories.space${requestedPath}`
         console.log('Processing video:', filename)
 
         const response = await fetch(originalVideoUrl)
@@ -143,48 +121,47 @@ async function processVideoRequest(req, res, next) {
             )
         }
 
-        const arrayBuffer = await response.arrayBuffer()
-        const buffer = Buffer.from(arrayBuffer)
+        const buffer = Buffer.from(await response.arrayBuffer())
         await fs.promises.writeFile(tempFilePath, buffer)
 
         await processVideo(tempFilePath, outputPath)
 
-        return res.sendFile(outputPath)
+        res.sendFile(outputPath)
     } catch (err) {
-        if (err.response && err.response.status === 404) {
-            console.error('Resource not found:', err.config.url)
-            return res.status(404).send('Not Found')
-        }
-        console.error('Unexpected error:', err)
+        console.error('Error processing video request:', err)
         next(err)
     }
 }
 
 async function processVideo(inputPath, outputPath) {
-    const process = new ffmpeg(inputPath)
-    await process
-        .then((video) => {
-            return new Promise((resolve, reject) => {
-                video.fnAddWatermark(
-                    logoPath,
-                    outputPath,
-                    { position: 'C' },
-                    (error) => {
-                        if (error) return reject(error)
-                        resolve()
-                    }
-                )
-            })
-        })
-        .finally(() => {
-            // Delete the inputPath file using unlink
-            fs.unlink(inputPath, (err) => {
-                if (err) {
-                    console.error(err)
-                    return
+    try {
+        const video = await new ffmpeg(inputPath)
+        await new Promise((resolve, reject) => {
+            video.fnAddWatermark(
+                logoPath,
+                outputPath,
+                { position: 'C' },
+                (error) => {
+                    if (error) return reject(error)
+                    resolve()
                 }
-                // File deleted successfully
-                // console.log('Temp file successfully deleted');
-            })
+            )
         })
+    } catch (error) {
+        console.error('Error processing video:', error)
+        throw error
+    } finally {
+        fs.unlink(inputPath, (err) => {
+            if (err) console.error('Error deleting temp file:', err)
+        })
+    }
+}
+
+function isValidPath(requestedPath) {
+    return (
+        (requestedPath.startsWith('/content/images/videos/') ||
+            requestedPath.startsWith('/content/media/')) &&
+        !requestedPath.includes('..') &&
+        /^[\w\-\/\.]+$/.test(requestedPath)
+    )
 }
