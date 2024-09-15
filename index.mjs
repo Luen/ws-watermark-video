@@ -30,11 +30,35 @@ app.use(cookieParser())
 app.use(csrf({ cookie: true }))
 app.use(
     helmet({
-        contentSecurityPolicy: false,
-        crossOriginOpenerPolicy: { policy: 'unsafe-none' },
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: [
+                    "'self'",
+                    'https://static.cloudflareinsights.com',
+                    'https://www.googletagmanager.com',
+                    'https://www.google-analytics.com',
+                ],
+                connectSrc: [
+                    "'self'",
+                    'https://images.wanderstories.space',
+                    'https://static.cloudflareinsights.com',
+                    'https://www.google.com.au',
+                    'https://www.google-analytics.com',
+                ],
+                styleSrc: ["'self'"],
+                imgSrc: ["'self'", 'data:', 'https://wanderstories.space'],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+                frameAncestors: ["'self'"],
+                upgradeInsecureRequests: [],
+            },
+        },
+        crossOriginOpenerPolicy: { policy: 'same-origin' },
         crossOriginResourcePolicy: { policy: 'cross-origin' },
     })
-)
+) // Implement security headers
 app.use(compression())
 app.use(
     cors({
