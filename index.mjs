@@ -7,7 +7,7 @@ import ffmpeg from 'ffmpeg'
 import helmet from 'helmet'
 import compression from 'compression'
 import cors from 'cors'
-import csrf from 'csurf'
+import csrf from '@dr.pogodin/csurf'
 import cookieParser from 'cookie-parser'
 import sanitizeFilename from 'sanitize-filename'
 
