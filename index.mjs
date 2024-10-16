@@ -111,6 +111,12 @@ app.listen(port, () => {
 async function processVideoRequest(req, res, next) {
     const requestedPath = req.path
 
+    const url = new URL(requestedPath, 'https://wanderstories.space')
+    if (url.origin !== 'https://wanderstories.space') {
+        //throw new Error('Invalid URL')
+        return res.status(400).send('Invalid request')
+    }
+
     if (!isValidPath(requestedPath)) {
         return res.status(400).send('Invalid request')
     }
@@ -182,10 +188,11 @@ async function processVideo(inputPath, outputPath) {
 }
 
 function isValidPath(requestedPath) {
+    const allowedPaths = ['/content/images/videos/', '/content/media/']
+    const normalizedPath = path.normalize(requestedPath)
     return (
-        (requestedPath.startsWith('/content/images/videos/') ||
-            requestedPath.startsWith('/content/media/')) &&
-        !requestedPath.includes('..') &&
-        /^[\w\-\/\.]+$/.test(requestedPath)
+        allowedPaths.some((basePath) => normalizedPath.startsWith(basePath)) &&
+        !normalizedPath.includes('..') &&
+        /^[\w\-\/\.]+$/.test(normalizedPath)
     )
 }
