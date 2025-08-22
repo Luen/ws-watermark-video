@@ -111,12 +111,7 @@ app.listen(port, () => {
 async function processVideoRequest(req, res, next) {
     const requestedPath = req.path
 
-    const url = new URL(requestedPath, 'https://wanderstories.space')
-    if (url.origin !== 'https://wanderstories.space') {
-        //throw new Error('Invalid URL')
-        return res.status(400).send('Invalid request')
-    }
-
+    // SSRF protection: Ensure requestedPath is strictly inside allowed directories and cannot contain evil tricks
     if (!isValidPath(requestedPath)) {
         return res.status(400).send('Invalid request')
     }
@@ -188,11 +183,22 @@ async function processVideo(inputPath, outputPath) {
 }
 
 function isValidPath(requestedPath) {
+    // Remove any possible path traversal, enforce leading slash
+    if (!requestedPath.startsWith('/')) return false;
+    const normalizedPath = path.posix.normalize(requestedPath);
+
+    // Accept only strict subpaths, not allowing ../ or path traversal (path.posix.normalize never resolves above root for leading slash input)
     const allowedPaths = ['/content/images/videos/', '/content/media/']
-    const normalizedPath = path.normalize(requestedPath)
-    return (
-        allowedPaths.some((basePath) => normalizedPath.startsWith(basePath)) &&
-        !normalizedPath.includes('..') &&
-        /^[\w\-\/\.]+$/.test(normalizedPath)
-    )
+    if (!allowedPaths.some((basePath) => normalizedPath.startsWith(basePath))) {
+        return false;
+    }
+    // Only allow characters: alphanumerics, dash, underscore, slash, period
+    if (!/^[\w\-\/\.]+$/.test(normalizedPath)) {
+        return false;
+    }
+    // Never allow `..` anywhere, which could indicate traversal trickery
+    if (normalizedPath.includes('..')) {
+        return false;
+    }
+    return true;
 }
