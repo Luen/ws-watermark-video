@@ -136,31 +136,37 @@ async function processVideoRequest(req, res, next) {
             return res.sendFile(outputPath)
         }
 
-        // SSRF protection: Use allowlist approach for hostname and strict path validation
+        // SSRF protection: Use strict allowlist approach for URL construction
         const allowedHostname = 'wanderstories.space'
+
+        // Validate the path before URL construction
+        if (!isValidPath(requestedPath)) {
+            return res.status(400).send('Invalid request')
+        }
+
+        // Construct URL using only validated components
         const originalVideoUrl = new URL(
             requestedPath,
             `https://${allowedHostname}`
         )
 
-        // Additional SSRF protection: Verify the constructed URL is safe
+        // Final SSRF protection: Verify the constructed URL is safe
         if (originalVideoUrl.hostname !== allowedHostname) {
             return res.status(400).send('Invalid request')
         }
 
-        // Ensure the URL path is still valid after construction
-        if (!isValidPath(originalVideoUrl.pathname)) {
+        // Additional verification that the URL is safe
+        const safeUrl = `https://${allowedHostname}${requestedPath}`
+        if (originalVideoUrl.toString() !== safeUrl) {
             return res.status(400).send('Invalid request')
         }
 
         console.log('Processing video:', filename)
 
-        const response = await fetch(originalVideoUrl.toString())
+        const response = await fetch(safeUrl)
         if (!response.ok) {
             throw new Error(
-                `Failed to fetch ${originalVideoUrl.toString()}: ${
-                    response.statusText
-                }`
+                `Failed to fetch ${safeUrl}: ${response.statusText}`
             )
         }
 
