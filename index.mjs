@@ -136,13 +136,31 @@ async function processVideoRequest(req, res, next) {
             return res.sendFile(outputPath)
         }
 
-        const originalVideoUrl = `https://wanderstories.space${requestedPath}`
+        // SSRF protection: Use allowlist approach for hostname and strict path validation
+        const allowedHostname = 'wanderstories.space'
+        const originalVideoUrl = new URL(
+            requestedPath,
+            `https://${allowedHostname}`
+        )
+
+        // Additional SSRF protection: Verify the constructed URL is safe
+        if (originalVideoUrl.hostname !== allowedHostname) {
+            return res.status(400).send('Invalid request')
+        }
+
+        // Ensure the URL path is still valid after construction
+        if (!isValidPath(originalVideoUrl.pathname)) {
+            return res.status(400).send('Invalid request')
+        }
+
         console.log('Processing video:', filename)
 
-        const response = await fetch(originalVideoUrl)
+        const response = await fetch(originalVideoUrl.toString())
         if (!response.ok) {
             throw new Error(
-                `Failed to fetch ${originalVideoUrl}: ${response.statusText}`
+                `Failed to fetch ${originalVideoUrl.toString()}: ${
+                    response.statusText
+                }`
             )
         }
 
@@ -184,21 +202,46 @@ async function processVideo(inputPath, outputPath) {
 
 function isValidPath(requestedPath) {
     // Remove any possible path traversal, enforce leading slash
-    if (!requestedPath.startsWith('/')) return false;
-    const normalizedPath = path.posix.normalize(requestedPath);
+    if (!requestedPath.startsWith('/')) return false
 
-    // Accept only strict subpaths, not allowing ../ or path traversal (path.posix.normalize never resolves above root for leading slash input)
+    // Normalize the path to handle any potential path traversal attempts
+    const normalizedPath = path.posix.normalize(requestedPath)
+
+    // Accept only strict subpaths, not allowing ../ or path traversal
     const allowedPaths = ['/content/images/videos/', '/content/media/']
     if (!allowedPaths.some((basePath) => normalizedPath.startsWith(basePath))) {
-        return false;
+        return false
     }
+
     // Only allow characters: alphanumerics, dash, underscore, slash, period
     if (!/^[\w\-\/\.]+$/.test(normalizedPath)) {
-        return false;
+        return false
     }
+
     // Never allow `..` anywhere, which could indicate traversal trickery
     if (normalizedPath.includes('..')) {
-        return false;
+        return false
     }
-    return true;
+
+    // Additional SSRF protection: Check for potential URL scheme manipulation
+    // Prevent any attempt to include protocol, hostname, or port in the path
+    if (normalizedPath.includes('://') || normalizedPath.includes(':')) {
+        return false
+    }
+
+    // Prevent any attempt to include query parameters or fragments
+    if (normalizedPath.includes('?') || normalizedPath.includes('#')) {
+        return false
+    }
+
+    // Ensure the path doesn't end with a trailing slash (except for the base paths)
+    if (
+        normalizedPath !== '/content/images/videos/' &&
+        normalizedPath !== '/content/media/' &&
+        normalizedPath.endsWith('/')
+    ) {
+        return false
+    }
+
+    return true
 }
