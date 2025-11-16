@@ -1,0 +1,13 @@
+services:
+    watermark-video:
+        build: .
+        container_name: ws-watermark-video
+        ports:
+            - '8090:8090'
+        environment:
+            - PORT=8090
+        volumes:
+            # Mount volumes to persist processed videos and temp files
+            - ./videos:/app/videos
+            - ./temp:/app/temp
+        restart: unless-stopped
