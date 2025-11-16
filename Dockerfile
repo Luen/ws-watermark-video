@@ -24,11 +24,8 @@ COPY favicon.ico ./
 # Create necessary directories
 RUN mkdir -p temp videos
 
-# Expose port
+# Expose port (default, can be overridden via environment)
 EXPOSE 8090
-
-# Set environment variable for port (can be overridden)
-ENV PORT=8090
 
 # Run the application
 CMD ["node", "index.mjs"]
