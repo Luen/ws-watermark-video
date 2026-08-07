@@ -19,7 +19,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY index.mjs Wanderstories-logo.png favicon.ico ./
 
 RUN mkdir -p temp videos \
-  && chown -R node:node /app
+  && chown -R node:node /app/temp /app/videos
 
 USER node
 
