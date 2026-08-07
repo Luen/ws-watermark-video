@@ -1,10 +1,11 @@
 node_modules
-npm-debug.log
+npm-debug.log*
 .git
-.gitignore
 .github
+.gitignore
+.gitattributes
 .env
-.env.test
+.env.*
 *.log
 videos
 temp
@@ -13,5 +14,9 @@ ffmpeg.exe
 .DS_Store
 README.md
 LICENSE
-.gitattributes
+Dockerfile
+.dockerignore
+docker-compose.yml
+.vscode
+.idea
 

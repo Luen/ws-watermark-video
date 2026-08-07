@@ -1,32 +1,31 @@
-# Use Node.js LTS as base image
-FROM node:20-slim
+# syntax=docker/dockerfile:1
 
-# Install ffmpeg and other dependencies
-RUN apt-get update && \
-    apt-get install -y ffmpeg && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Express + ffmpeg video watermarker. ffmpeg is required at runtime (large);
+# keep Debian slim, avoid recommends, run as non-root with writable dirs.
 
-# Set working directory
+FROM node:22-bookworm-slim
+
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+ENV NODE_ENV=production
 
-# Install dependencies
-RUN npm ci --only=production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy application files
-COPY index.mjs ./
-COPY Wanderstories-logo.png ./
-COPY favicon.ico ./
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Create necessary directories
-RUN mkdir -p temp videos
+COPY index.mjs Wanderstories-logo.png favicon.ico ./
 
-# Expose port (default, can be overridden via environment)
+RUN mkdir -p temp videos \
+  && chown -R node:node /app/temp /app/videos
+
+USER node
+
 EXPOSE 8090
 
-# Run the application
-CMD ["node", "index.mjs"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||8090)+'/', (r) => process.exit(r.statusCode===200?0:1)).on('error', () => process.exit(1))"
 
+CMD ["node", "index.mjs"]
