@@ -96,8 +96,9 @@ app.get('/favicon.ico', (req, res) => {
     res.sendFile('favicon.ico', { root: __dirname })
 })
 
-app.get('/content/images/videos/*', processVideoRequest)
-app.get('/content/media/*', processVideoRequest)
+// Express 5 requires named wildcards (path-to-regexp v8); bare /* is invalid.
+app.get('/content/images/videos/*splat', processVideoRequest)
+app.get('/content/media/*splat', processVideoRequest)
 
 app.use((err, req, res, next) => {
     console.error(err.stack)
