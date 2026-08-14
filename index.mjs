@@ -100,7 +100,7 @@ app.get('/favicon.ico', (req, res) => {
 app.get('/content/images/videos/*splat', processVideoRequest)
 app.get('/content/media/*splat', processVideoRequest)
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
     console.error(err.stack)
     res.status(500).send('Something went wrong!')
 })
@@ -221,7 +221,7 @@ function isValidPath(requestedPath) {
     }
 
     // Only allow characters: alphanumerics, dash, underscore, slash, period
-    if (!/^[\w\-\/\.]+$/.test(normalizedPath)) {
+    if (!/^[\w\-/.]+$/.test(normalizedPath)) {
         return false
     }
 
