@@ -10,7 +10,7 @@ Wanderstories video watermark proxy: Express + ffmpeg.
 
 ## Setup
 
-Requires Node.js and ffmpeg on PATH (`ffmpeg.exe` next to the repo on Windows, or `apt`/`brew` install).
+Requires Node.js 24+, plus `ffmpeg` and `ffprobe` on PATH (`ffmpeg.exe` next to the repo on Windows, or `apt`/`brew` install).
 
 ```bash
 npm install

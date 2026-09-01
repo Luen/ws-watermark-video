@@ -185,18 +185,8 @@ async function processVideoRequest(req, res, next) {
 
 async function processVideo(inputPath, outputPath) {
     try {
-        const video = await new ffmpeg(inputPath)
-        await new Promise((resolve, reject) => {
-            video.fnAddWatermark(
-                logoPath,
-                outputPath,
-                { position: 'C' },
-                (error) => {
-                    if (error) return reject(error)
-                    resolve()
-                }
-            )
-        })
+        const video = await ffmpeg(inputPath)
+        await video.fnAddWatermark(logoPath, outputPath, { position: 'C' })
     } catch (error) {
         console.error('Error processing video:', error)
         throw error
