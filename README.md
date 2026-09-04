@@ -25,6 +25,6 @@ brew install ffmpeg
 ```
 git clone https://github.com/Luen/ws-watermark-video
 cd ws-watermark-video/
-npm install
+pnpm install
 npm start
 ```
