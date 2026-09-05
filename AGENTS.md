@@ -17,12 +17,20 @@ Treat this file as **living documentation**. Update it in the same PR when the s
 - Promote to **`main`** when ready for production.
 - Do not use `master` (rename to `main` if any remnant remains).
 
+## Package manager
+
+This repo uses **pnpm** (`packageManager` in `package.json`).
+
+- Install: `pnpm install` (do not use npm/yarn for installs in this repo).
+- Scripts: `pnpm run <script>` / `pnpm exec <bin>`.
+- Lockfile: `pnpm-lock.yaml` only â€” do not commit `package-lock.json` or `yarn.lock`.
+- Local disk: pnpm's content-addressable store shares package contents across checkouts on the same machine.
 ## Dependency and deploy notes
 
 ### Tier B - Docker services (nightly on main)
 
 - Nightly GitHub Action (`.github/workflows/nightly-minor-deps-release.yml`) runs on **`main`**:
-  1. `npm update` (in-range / minor+patch only)
+  1. `pnpm update` (in-range / minor+patch only)
   2. lint/test when scripts exist
   3. if lockfile changed: patch bump, commit to `main`, GitHub Release, push Docker Hub image
 - Image tags: `$DOCKERHUB_USERNAME/<repo>:latest`, `:v<version>`, `:<sha>`
@@ -39,15 +47,15 @@ Wanderstories video watermark proxy: Express + ffmpeg.
 Requires Node.js 24+, plus `ffmpeg` and `ffprobe` on PATH (`ffmpeg.exe` next to the repo on Windows, or `apt`/`brew` install).
 
 ```bash
-npm install
+pnpm install
 npm start
-npm run dev
-npm run lint
+pnpm run dev
+pnpm run lint
 ```
 
 ## Conventions
 
-- Run `npm run lint` after JS changes; fix issues before finishing.
+- Run `pnpm run lint` after JS changes; fix issues before finishing.
 - Sanitize filenames and user input; keep Helmet / CSRF / rate-limit behavior intact.
 - Never commit secrets or uploaded media.
 
