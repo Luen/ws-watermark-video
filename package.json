@@ -1,6 +1,6 @@
 {
   "name": "ws-watermark-video",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "engines": {
     "node": ">=24"
   },
@@ -15,7 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "@dr.pogodin/csurf": "^1.17.1",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.2.1",
