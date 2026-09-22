@@ -1,6 +1,6 @@
 {
   "name": "ws-watermark-video",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "engines": {
     "node": ">=24"
   },
@@ -14,7 +14,7 @@
   "author": "Luen Warneke",
   "license": "ISC",
   "dependencies": {
-    "@dr.pogodin/csurf": "^1.17.1",
+    "@dr.pogodin/csurf": "^1.18.1",
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
