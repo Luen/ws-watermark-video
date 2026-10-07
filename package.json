@@ -1,10 +1,6 @@
 {
   "name": "ws-watermark-video",
-<<<<<<< HEAD
-  "version": "1.0.7",
-=======
-  "version": "1.0.16",
->>>>>>> origin/dev
+  "version": "1.0.17",
   "engines": {
     "node": ">=24"
   },
