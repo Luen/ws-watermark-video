@@ -1,5 +1,7 @@
 services:
     watermark-video:
+        # Prefer GHCR on servers (Watchtower). Local: docker compose up --build
+        image: ghcr.io/luen/ws-watermark-video:latest
         build: .
         container_name: ws-watermark-video
         ports:
