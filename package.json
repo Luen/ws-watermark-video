@@ -2,7 +2,7 @@
   "name": "ws-watermark-video",
   "version": "1.0.26",
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "description": "Wanderstories Video Watermarker",
   "main": "index.js",
