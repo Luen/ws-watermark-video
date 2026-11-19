@@ -41,7 +41,7 @@ jobs:
       - name: Checkout main
         uses: actions/checkout@v7
         with:
-          ref: dev
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       - name: Setup pnpm
@@ -144,7 +144,7 @@ jobs:
           if [ -f pnpm-lock.yaml ]; then git add pnpm-lock.yaml; fi
           if [ -f pnpm-lock.yaml ]; then git add pnpm-lock.yaml; fi
           git commit -m "chore(deps): nightly in-major dependency update (${{ steps.version.outputs.version }})"
-          git push origin HEAD:dev
+          git push origin HEAD:main
 
       - name: Commit and push (devDependencies only)
         if: steps.changes.outputs.changed == 'true' && steps.changes.outputs.release != 'true'
@@ -156,7 +156,7 @@ jobs:
           if [ -f pnpm-lock.yaml ]; then git add pnpm-lock.yaml; fi
           if [ -f pnpm-lock.yaml ]; then git add pnpm-lock.yaml; fi
           git commit -m "chore(deps): nightly in-major dependency update (devDependencies only)"
-          git push origin HEAD:dev
+          git push origin HEAD:main
 
       - name: Create GitHub Release
         if: steps.changes.outputs.release == 'true'
@@ -170,7 +170,7 @@ jobs:
             echo "Release $TAG already exists"
             exit 0
           fi
-          gh release create "$TAG" --target dev --title "$TAG" --notes "Nightly in-major dependency update (${TAG})."
+          gh release create "$TAG" --target main --title "$TAG" --notes "Nightly in-major dependency update (${TAG})."
 
       - name: Set up QEMU
         if: steps.changes.outputs.release == 'true'

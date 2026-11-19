@@ -8,14 +8,14 @@ Treat this file as **living documentation**. Update it in the same PR when the s
 
 ## Branch model
 
+This repository uses **Trunk-Based Development** (single long-lived branch).
+
 | Branch | Role |
 | --- | --- |
-| `dev` | Default branch for features and improvements |
-| `main` | Production. Safe dependency bumps and releases land here |
+| `main` | Default and production branch. All feature/fix PRs target `main`. |
 
-- Open feature/fix PRs against **`dev`**.
-- Promote to **`main`** when ready for production.
-- Do not use `master` (rename to `main` if any remnant remains).
+- Open feature and fix PRs directly against **`main`**.
+- Do not use `master` or `dev`.
 
 ## Package manager
 
