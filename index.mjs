@@ -259,21 +259,22 @@ async function processVideoRequest(req, res, next) {
         return res.status(400).send('Invalid request')
     }
 
-    // Preserve relative subpath under outputDir to avoid collisions between identically named files in different folders
-    const relativeSubpath = normalizedPath.replace(/^\/+/, '')
-    const outputPath = path.join(outputDir, relativeSubpath)
+    // Hash normalized path to prevent collision between identical filenames in different subpaths
+    const pathHash = crypto.createHash('sha256').update(normalizedPath).digest('hex').slice(0, 16)
+    const cachedFilename = `${pathHash}-${filename}`
+    const outputPath = path.join(outputDir, cachedFilename)
 
     try {
         if (fs.existsSync(outputPath)) {
             console.log('File already exists, returning cached version:', filename)
-            return res.sendFile(outputPath)
+            return res.sendFile(cachedFilename, { root: outputDir })
         }
 
         // If another request is currently transcoding this exact video, await its result
         if (inFlightTranscodes.has(normalizedPath)) {
             console.log('Video request already in flight, awaiting result:', filename)
-            const resultPath = await inFlightTranscodes.get(normalizedPath)
-            return res.sendFile(resultPath)
+            await inFlightTranscodes.get(normalizedPath)
+            return res.sendFile(cachedFilename, { root: outputDir })
         }
 
         const transcodePromise = (async () => {
@@ -307,7 +308,7 @@ async function processVideoRequest(req, res, next) {
                 throw notFoundErr
             }
             if (!response.ok) {
-                const upstreamErr = new Error(`Upstream error: ${response.statusText}`)
+                const upstreamErr = new Error('UPSTREAM_ERROR')
                 upstreamErr.status = 502
                 throw upstreamErr
             }
@@ -357,14 +358,13 @@ async function processVideoRequest(req, res, next) {
                     await processVideo(tempFilePath, tempOutputPath)
                     tempOutputCreated = true
 
-                    await fs.promises.mkdir(path.dirname(outputPath), { recursive: true })
                     await fs.promises.rename(tempOutputPath, outputPath)
                     tempOutputCreated = false // Successfully moved to outputPath
                 } finally {
                     releaseSlot()
                 }
 
-                return outputPath
+                return cachedFilename
             } finally {
                 if (tempFileCreated) {
                     fs.unlink(tempFilePath, (_err) => {})
@@ -378,17 +378,23 @@ async function processVideoRequest(req, res, next) {
         inFlightTranscodes.set(normalizedPath, transcodePromise)
 
         try {
-            const finalPath = await transcodePromise
-            res.sendFile(finalPath)
+            await transcodePromise
+            res.sendFile(cachedFilename, { root: outputDir })
         } finally {
             inFlightTranscodes.delete(normalizedPath)
         }
     } catch (err) {
-        if (err.status) {
-            return res.status(err.status).send(err.message === 'NOT_FOUND' ? 'Video not found' : err.message)
+        if (err.status === 404) {
+            return res.status(404).contentType('text/plain').send('Video not found')
+        }
+        if (err.status === 413) {
+            return res.status(413).contentType('text/plain').send('Video file exceeds maximum allowed size')
+        }
+        if (err.status === 502) {
+            return res.status(502).contentType('text/plain').send('Upstream server error')
         }
         if (err.name === 'TimeoutError') {
-            return res.status(504).send('Upstream request timed out')
+            return res.status(504).contentType('text/plain').send('Upstream request timed out')
         }
         console.error('Error processing video request:', err)
         next(err)
