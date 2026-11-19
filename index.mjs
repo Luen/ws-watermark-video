@@ -324,9 +324,6 @@ async function processVideoRequest(req, res, next) {
             const tempFilePath = path.join(tempFileDir, `${uniqueId}-${filename}`)
             const tempOutputPath = path.join(tempFileDir, `${uniqueId}-out-${filename}`)
 
-            let tempFileCreated = false
-            let tempOutputCreated = false
-
             try {
                 // Stream download directly to disk while counting bytes
                 let bytesDownloaded = 0
@@ -349,29 +346,22 @@ async function processVideoRequest(req, res, next) {
                     sizeLimiter,
                     writeStream
                 )
-                tempFileCreated = true
 
                 // Acquire semaphore slot for transcoding
                 const releaseSlot = await transcodeSemaphore.acquire()
                 try {
                     console.log('Processing video with ffmpeg:', filename)
                     await processVideo(tempFilePath, tempOutputPath)
-                    tempOutputCreated = true
 
                     await fs.promises.rename(tempOutputPath, outputPath)
-                    tempOutputCreated = false // Successfully moved to outputPath
                 } finally {
                     releaseSlot()
                 }
 
                 return cachedFilename
             } finally {
-                if (tempFileCreated) {
-                    fs.unlink(tempFilePath, (_err) => {})
-                }
-                if (tempOutputCreated) {
-                    fs.unlink(tempOutputPath, (_err) => {})
-                }
+                fs.unlink(tempFilePath, (_err) => {})
+                fs.unlink(tempOutputPath, (_err) => {})
             }
         })()
 
