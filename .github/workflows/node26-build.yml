@@ -23,6 +23,7 @@ jobs:
       - run: npm install -g pnpm@10.33.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      - run: pnpm test
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 45

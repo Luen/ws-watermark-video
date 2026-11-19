@@ -51,11 +51,12 @@ pnpm install
 npm start
 pnpm run dev
 pnpm run lint
+pnpm test
 ```
 
 ## Conventions
 
-- Run `pnpm run lint` after JS changes; fix issues before finishing.
+- Run `pnpm run lint` and `pnpm test` after JS changes; fix issues before finishing.
 - Sanitize filenames and user input; keep Helmet / CSRF / rate-limit behavior intact.
 - Never commit secrets or uploaded media.
 

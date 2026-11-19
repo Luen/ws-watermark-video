@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node index.mjs",
     "dev": "nodemon index.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test"
   },
   "author": "Luen Warneke",
   "license": "ISC",
