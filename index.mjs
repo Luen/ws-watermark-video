@@ -284,6 +284,7 @@ async function processVideoRequest(req, res, next) {
     try {
         if (fs.existsSync(outputPath)) {
             console.log('File already exists, returning cached version:', filename)
+            await touchCacheFile(outputPath)
             return res.sendFile(cachedFilename, { root: outputDir })
         }
 
@@ -291,6 +292,7 @@ async function processVideoRequest(req, res, next) {
         if (inFlightTranscodes.has(normalizedPath)) {
             console.log('Video request already in flight, awaiting result:', filename)
             await inFlightTranscodes.get(normalizedPath)
+            await touchCacheFile(outputPath)
             return res.sendFile(cachedFilename, { root: outputDir })
         }
 
@@ -371,7 +373,12 @@ async function processVideoRequest(req, res, next) {
                     await processVideo(tempFilePath, tempOutputPath)
 
                     await fs.promises.rename(tempOutputPath, outputPath)
-                    evictCacheIfNeeded().catch((err) => {
+                    evictCacheIfNeeded(
+                        outputDir,
+                        MAX_CACHE_BYTES,
+                        CACHE_TTL_MS,
+                        outputPath
+                    ).catch((err) => {
                         console.error('Cache eviction error:', err)
                     })
                 } finally {
@@ -482,12 +489,24 @@ async function cleanTempDir(dir = tempFileDir) {
     }
 }
 
+async function touchCacheFile(filePath) {
+    try {
+        const now = new Date()
+        await fs.promises.utimes(filePath, now, now)
+    } catch {
+        // Ignore: the file may have been evicted between the check and the touch.
+    }
+}
+
 async function evictCacheIfNeeded(
     targetDir = outputDir,
     maxBytes = MAX_CACHE_BYTES,
-    ttlMs = CACHE_TTL_MS
+    ttlMs = CACHE_TTL_MS,
+    excludePath = null
 ) {
     if (maxBytes <= 0 && ttlMs <= 0) return
+
+    const excluded = excludePath ? path.resolve(excludePath) : null
 
     try {
         const entries = await fs.promises.readdir(targetDir, { withFileTypes: true })
@@ -505,6 +524,9 @@ async function evictCacheIfNeeded(
                     path: filePath,
                     size: stats.size,
                     time: stats.mtimeMs || stats.ctimeMs,
+                    // Never evict the file this request just produced and is
+                    // about to serve; it still counts toward the cache size.
+                    excluded: excluded !== null && path.resolve(filePath) === excluded,
                 })
                 totalBytes += stats.size
             } catch {
@@ -516,6 +538,7 @@ async function evictCacheIfNeeded(
         if (ttlMs > 0) {
             for (let i = files.length - 1; i >= 0; i--) {
                 const file = files[i]
+                if (file.excluded) continue
                 if (now - file.time > ttlMs) {
                     try {
                         await fs.promises.unlink(file.path)
@@ -529,13 +552,14 @@ async function evictCacheIfNeeded(
             }
         }
 
-        // Evict oldest files if total size exceeds maxBytes
+        // Evict least recently used files if total size exceeds maxBytes
         if (maxBytes > 0 && totalBytes > maxBytes) {
             const targetBytes = maxBytes * 0.9
             files.sort((a, b) => a.time - b.time)
 
             for (const file of files) {
                 if (totalBytes <= targetBytes) break
+                if (file.excluded) continue
                 try {
                     await fs.promises.unlink(file.path)
                     totalBytes -= file.size
@@ -550,23 +574,31 @@ async function evictCacheIfNeeded(
     }
 }
 
-function setupGracefulShutdown(server) {
+function setupGracefulShutdown(server, timeoutMs = 15000) {
     const shutdown = async (signal) => {
         if (isShuttingDown) return
         isShuttingDown = true
         console.log(`Received ${signal}, starting graceful shutdown...`)
 
+        const forceExit = setTimeout(() => {
+            console.error('Graceful shutdown timed out, forcing exit.')
+            // Drop any remaining sockets so process.exit() is not delayed.
+            server.closeAllConnections?.()
+            process.exit(1)
+        }, timeoutMs)
+        forceExit.unref()
+
         server.close(async () => {
+            clearTimeout(forceExit)
             console.log('HTTP server closed.')
             await cleanTempDir(tempFileDir)
             console.log('Shutdown complete.')
             process.exit(0)
         })
 
-        setTimeout(() => {
-            console.error('Graceful shutdown timed out, forcing exit.')
-            process.exit(1)
-        }, 15000).unref()
+        // Idle keep-alive sockets would otherwise hold server.close() open
+        // until the shutdown timeout expires.
+        server.closeIdleConnections?.()
     }
 
     process.on('SIGTERM', () => shutdown('SIGTERM'))

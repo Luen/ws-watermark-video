@@ -165,6 +165,24 @@ test('cleanTempDir and evictCacheIfNeeded cache management', async (t) => {
         assert.equal(fs.existsSync(fileC), true)
     })
 
+    await t.test('evictCacheIfNeeded never evicts the excluded path', async () => {
+        const keep = path.join(testDir, 'keep.mp4')
+        const drop = path.join(testDir, 'drop.mp4')
+
+        fs.writeFileSync(keep, Buffer.alloc(100, 4))
+        fs.writeFileSync(drop, Buffer.alloc(100, 5))
+
+        // Make the excluded file the oldest so it would normally be evicted first.
+        const older = (Date.now() - 60000) / 1000
+        fs.utimesSync(keep, older, older)
+        fs.utimesSync(drop, Date.now() / 1000, Date.now() / 1000)
+
+        await evictCacheIfNeeded(testDir, 150, 0, keep)
+
+        assert.equal(fs.existsSync(keep), true)
+        assert.equal(fs.existsSync(drop), false)
+    })
+
     await t.test('evictCacheIfNeeded prunes expired files when TTL is exceeded', async () => {
         const expiredFile = path.join(testDir, 'expired.mp4')
         const freshFile = path.join(testDir, 'fresh.mp4')

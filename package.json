@@ -1,11 +1,11 @@
 {
   "name": "ws-watermark-video",
-  "version": "1.0.30",
+  "version": "1.1.0",
   "engines": {
     "node": ">=26"
   },
   "description": "Wanderstories Video Watermarker",
-  "main": "index.js",
+  "main": "index.mjs",
   "scripts": {
     "start": "node index.mjs",
     "dev": "nodemon index.mjs",
