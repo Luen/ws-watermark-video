@@ -76,6 +76,8 @@ Client Request
 - **Concurrency Limiting**: Built-in asynchronous semaphore queue caps parallel FFmpeg processes (`MAX_CONCURRENT_TRANSCODES`) to protect host CPU and RAM.
 - **SingleFlight Deduplication**: Coalesces concurrent in-flight requests for the same uncached video so redundant encoding work is never duplicated.
 - **Collision-Free Atomic Caching**: Disk cache keys are hashed (`${sha256}-${filename}`) to prevent path collisions across subdirectories, and completed videos are moved via atomic rename (`fs.promises.rename`) to guarantee no corrupted or partial files enter the cache.
+- **Bounded Disk Cache**: `MAX_CACHE_BYTES` caps cache growth and evicts least-recently-used files (access time is refreshed on cache hits), while `CACHE_TTL_MS` optionally expires stale entries. The file produced by the current request is never evicted before it is served.
+- **Graceful Shutdown**: On `SIGTERM` / `SIGINT` the server stops accepting connections, drains in-flight requests, removes orphaned temp files, and exits; a timeout force-closes remaining sockets if draining stalls.
 - **Multi-Layered Security**:
   - **SSRF Defense**: Strict subpath allowlisting, rejection of traversal (`..`), double-slash scheme bypasses, query strings, and `redirect: 'error'` on upstream fetch.
   - **CORS Protection**: Origin validation restricted to `wanderstories.space`, `*.wanderstories.space`, and development hosts, eliminating credentialed reflection vulnerabilities (CWE-942).
@@ -156,9 +158,12 @@ pnpm start
 
 ### Docker & Docker Compose
 
-A production-ready, multi-arch Docker image running as a non-root user (`node`) is included:
+A production-ready, multi-arch Docker image running as a non-root user (`node`) is published to GHCR:
 
 ```bash
+# Pull the published image
+docker pull ghcr.io/luen/ws-watermark-video:latest
+
 # Build and run with Docker Compose
 docker compose up --build
 
@@ -178,7 +183,7 @@ The Docker container exposes port `8090` and mounts `./videos` and `./temp` for 
 This repository uses Node.js's native test runner (`node:test`) and ESLint 10 flat configuration:
 
 ```bash
-# Run unit and integration test suite (20 tests)
+# Run unit and integration test suite
 pnpm test
 
 # Run ESLint
