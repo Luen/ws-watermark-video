@@ -35,8 +35,17 @@ const MAX_CONCURRENT_TRANSCODES = parseInt(
     process.env.MAX_CONCURRENT_TRANSCODES || '2',
     10
 )
+const MAX_CACHE_BYTES = parseInt(
+    process.env.MAX_CACHE_BYTES || `${10 * 1024 * 1024 * 1024}`, // 10 GB default (0 = disabled)
+    10
+)
+const CACHE_TTL_MS = parseInt(
+    process.env.CACHE_TTL_MS || '0', // 0 = disabled, or milliseconds
+    10
+)
 
 const app = express()
+let isShuttingDown = false
 
 // Trust proxy configuration
 const trustProxyConfig =
@@ -55,6 +64,9 @@ if (!fs.existsSync(tempFileDir)) {
 if (!fs.existsSync(logoPath)) {
     console.warn(`Warning: Watermark logo not found at ${logoPath}`)
 }
+
+// Clean orphaned files from temp directory on startup
+cleanTempDir().catch(() => {})
 
 // CORS origin validation
 const defaultAllowedOrigins = [
@@ -232,12 +244,17 @@ const isMainModule =
     import.meta.url === url.pathToFileURL(path.resolve(process.argv[1])).href
 
 if (isMainModule) {
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
         console.log(`Listening on port http://localhost:${port}`)
     })
+    setupGracefulShutdown(server)
 }
 
 async function processVideoRequest(req, res, next) {
+    if (isShuttingDown) {
+        return res.status(503).contentType('text/plain').send('Server is shutting down')
+    }
+
     const requestedPath = req.path
 
     // SSRF protection: Ensure requestedPath is strictly inside allowed directories and cannot contain evil tricks
@@ -354,6 +371,9 @@ async function processVideoRequest(req, res, next) {
                     await processVideo(tempFilePath, tempOutputPath)
 
                     await fs.promises.rename(tempOutputPath, outputPath)
+                    evictCacheIfNeeded().catch((err) => {
+                        console.error('Cache eviction error:', err)
+                    })
                 } finally {
                     releaseSlot()
                 }
@@ -449,4 +469,116 @@ function isValidPath(requestedPath) {
     return true
 }
 
-export { app, isValidPath, isOriginAllowed, processVideoRequest }
+async function cleanTempDir(dir = tempFileDir) {
+    try {
+        const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+        for (const entry of entries) {
+            if (entry.isFile()) {
+                await fs.promises.unlink(path.join(dir, entry.name)).catch(() => {})
+            }
+        }
+    } catch (err) {
+        console.error('Error cleaning temp directory:', err)
+    }
+}
+
+async function evictCacheIfNeeded(
+    targetDir = outputDir,
+    maxBytes = MAX_CACHE_BYTES,
+    ttlMs = CACHE_TTL_MS
+) {
+    if (maxBytes <= 0 && ttlMs <= 0) return
+
+    try {
+        const entries = await fs.promises.readdir(targetDir, { withFileTypes: true })
+        const files = []
+        let totalBytes = 0
+        const now = Date.now()
+
+        for (const entry of entries) {
+            if (!entry.isFile()) continue
+            const filePath = path.join(targetDir, entry.name)
+            try {
+                const stats = await fs.promises.stat(filePath)
+                files.push({
+                    name: entry.name,
+                    path: filePath,
+                    size: stats.size,
+                    time: stats.mtimeMs || stats.ctimeMs,
+                })
+                totalBytes += stats.size
+            } catch {
+                // Ignore stat errors if file unlinked concurrently
+            }
+        }
+
+        // Evict expired files if TTL configured
+        if (ttlMs > 0) {
+            for (let i = files.length - 1; i >= 0; i--) {
+                const file = files[i]
+                if (now - file.time > ttlMs) {
+                    try {
+                        await fs.promises.unlink(file.path)
+                        totalBytes -= file.size
+                        files.splice(i, 1)
+                        console.log('Evicted expired cache file (TTL):', file.name)
+                    } catch {
+                        // Ignore unlink failure
+                    }
+                }
+            }
+        }
+
+        // Evict oldest files if total size exceeds maxBytes
+        if (maxBytes > 0 && totalBytes > maxBytes) {
+            const targetBytes = maxBytes * 0.9
+            files.sort((a, b) => a.time - b.time)
+
+            for (const file of files) {
+                if (totalBytes <= targetBytes) break
+                try {
+                    await fs.promises.unlink(file.path)
+                    totalBytes -= file.size
+                    console.log('Evicted cache file (LRU):', file.name)
+                } catch {
+                    // Ignore unlink failure
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error during cache eviction:', err)
+    }
+}
+
+function setupGracefulShutdown(server) {
+    const shutdown = async (signal) => {
+        if (isShuttingDown) return
+        isShuttingDown = true
+        console.log(`Received ${signal}, starting graceful shutdown...`)
+
+        server.close(async () => {
+            console.log('HTTP server closed.')
+            await cleanTempDir(tempFileDir)
+            console.log('Shutdown complete.')
+            process.exit(0)
+        })
+
+        setTimeout(() => {
+            console.error('Graceful shutdown timed out, forcing exit.')
+            process.exit(1)
+        }, 15000).unref()
+    }
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'))
+    process.on('SIGINT', () => shutdown('SIGINT'))
+}
+
+export {
+    app,
+    isValidPath,
+    isOriginAllowed,
+    processVideoRequest,
+    evictCacheIfNeeded,
+    cleanTempDir,
+    setupGracefulShutdown,
+}
