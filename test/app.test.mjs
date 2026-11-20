@@ -1,7 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { app, isValidPath, isOriginAllowed } from '../index.mjs'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import { app, isValidPath, isOriginAllowed, cleanTempDir, evictCacheIfNeeded } from '../index.mjs'
 
 test('isValidPath path validation', async (t) => {
     await t.test('accepts valid paths under /content/images/videos/', () => {
@@ -122,5 +125,65 @@ test('HTTP server integration', async (t) => {
 
     await t.test('teardown server', async () => {
         await new Promise((resolve) => server.close(resolve))
+    })
+})
+
+test('cleanTempDir and evictCacheIfNeeded cache management', async (t) => {
+    const testDir = path.join(os.tmpdir(), `ws-test-${Date.now()}`)
+    fs.mkdirSync(testDir, { recursive: true })
+
+    await t.test('cleanTempDir removes all files in target directory', async () => {
+        fs.writeFileSync(path.join(testDir, 'temp1.txt'), 'hello')
+        fs.writeFileSync(path.join(testDir, 'temp2.txt'), 'world')
+        assert.equal(fs.readdirSync(testDir).length, 2)
+
+        await cleanTempDir(testDir)
+        assert.equal(fs.readdirSync(testDir).length, 0)
+    })
+
+    await t.test('evictCacheIfNeeded prunes oldest files when size exceeds maxBytes', async () => {
+        const fileA = path.join(testDir, 'fileA.mp4')
+        const fileB = path.join(testDir, 'fileB.mp4')
+        const fileC = path.join(testDir, 'fileC.mp4')
+
+        // Write 100 bytes each (total 300 bytes)
+        fs.writeFileSync(fileA, Buffer.alloc(100, 1))
+        fs.writeFileSync(fileB, Buffer.alloc(100, 2))
+        fs.writeFileSync(fileC, Buffer.alloc(100, 3))
+
+        // Set mtimes: A oldest, B middle, C newest
+        const past = Date.now() - 100000
+        fs.utimesSync(fileA, (past - 20000) / 1000, (past - 20000) / 1000)
+        fs.utimesSync(fileB, (past - 10000) / 1000, (past - 10000) / 1000)
+        fs.utimesSync(fileC, past / 1000, past / 1000)
+
+        // Evict if over 250 bytes (target 90% = 225 bytes)
+        await evictCacheIfNeeded(testDir, 250, 0)
+
+        // fileA should have been evicted first
+        assert.equal(fs.existsSync(fileA), false)
+        assert.equal(fs.existsSync(fileC), true)
+    })
+
+    await t.test('evictCacheIfNeeded prunes expired files when TTL is exceeded', async () => {
+        const expiredFile = path.join(testDir, 'expired.mp4')
+        const freshFile = path.join(testDir, 'fresh.mp4')
+
+        fs.writeFileSync(expiredFile, 'data')
+        fs.writeFileSync(freshFile, 'data')
+
+        // Set expiredFile mtime to 1 hour ago
+        const oneHourAgo = (Date.now() - 3600 * 1000) / 1000
+        fs.utimesSync(expiredFile, oneHourAgo, oneHourAgo)
+
+        // TTL is 30 minutes (1800000 ms)
+        await evictCacheIfNeeded(testDir, 0, 1800000)
+
+        assert.equal(fs.existsSync(expiredFile), false)
+        assert.equal(fs.existsSync(freshFile), true)
+    })
+
+    await t.test('cleanup test directory', () => {
+        fs.rmSync(testDir, { recursive: true, force: true })
     })
 })

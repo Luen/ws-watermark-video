@@ -103,6 +103,8 @@ Client Request
 | `ALLOWED_ORIGINS` | String | `""` | Additional comma-separated CORS origins (e.g. `https://example.com,https://app.example.com`). |
 | `MAX_CONCURRENT_TRANSCODES` | Number | `2` | Maximum number of simultaneous FFmpeg transcoding processes. |
 | `MAX_VIDEO_SIZE_BYTES` | Number | `524288000` (500 MB) | Maximum permitted size for incoming video files. |
+| `MAX_CACHE_BYTES` | Number | `10737418240` (10 GB) | Maximum cache size in bytes before LRU eviction prunes oldest files (0 = disabled). |
+| `CACHE_TTL_MS` | Number | `0` (disabled) | Cache time-to-live in milliseconds; files older than TTL are pruned on eviction. |
 | `FETCH_TIMEOUT_MS` | Number | `30000` (30s) | Upstream fetch timeout in milliseconds. |
 | `VIDEO_RATE_LIMIT_MAX` | Number | `30` | Maximum video transcode requests per 15-minute window per IP. |
 | `TRUST_PROXY` | Boolean / Number | `1` (production) / `false` | Express `trust proxy` setting for reverse proxy deployments. |
